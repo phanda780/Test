@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Oil Price Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #1c2128;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --green: #3fb950;
+      --red: #f85149;
+      --accent: #58a6ff;
+      --gold: #d29922;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px 48px;
+    }
+
+    header {
+      max-width: 1100px;
+      margin: 0 auto 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .header-left h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .header-left h1 span {
+      color: var(--gold);
+    }
+
+    .header-left p {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #last-updated {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    #refresh-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    #refresh-btn:hover { background: var(--border); border-color: var(--accent); }
+    #refresh-btn:active { transform: scale(0.97); }
+
+    .spinner {
+      display: none;
+      width: 12px; height: 12px;
+      border: 2px solid var(--muted);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .section-label {
+      max-width: 1100px;
+      margin: 0 auto 12px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      padding: 0 4px;
+    }
+
+    .grid {
+      max-width: 1100px;
+      margin: 0 auto 32px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      cursor: default;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+
+    .card:hover {
+      border-color: #484f58;
+      transform: translateY(-1px);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+
+    .card-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .card-unit {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .card-flag {
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .card-price {
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 8px;
+    }
+
+    .card-change {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .badge.up   { background: rgba(63,185,80,0.15); color: var(--green); }
+    .badge.down { background: rgba(248,81,73,0.15);  color: var(--red); }
+
+    .change-abs {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .card-meta {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    /* sparkline mini bar */
+    .sparkline {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 28px;
+      margin-top: 12px;
+    }
+
+    .spark-bar {
+      flex: 1;
+      border-radius: 2px 2px 0 0;
+      min-height: 4px;
+      opacity: 0.7;
+    }
+
+    .spark-bar.up   { background: var(--green); }
+    .spark-bar.down { background: var(--red); }
+
+    footer {
+      max-width: 1100px;
+      margin: 0 auto;
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .pulse {
+      display: inline-block;
+      width: 7px; height: 7px;
+      background: var(--green);
+      border-radius: 50%;
+      margin-right: 5px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    @media (max-width: 480px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+      .card-price { font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>Oil Price <span>Tracker</span></h1>
+    <p>Global crude oil &amp; energy benchmarks</p>
+  </div>
+  <div class="header-right">
+    <span id="last-updated"></span>
+    <button id="refresh-btn">
+      <div class="spinner" id="spinner"></div>
+      <span>&#8635; Refresh</span>
+    </button>
+  </div>
+</header>
+
+<div class="section-label">Crude Oil Benchmarks (USD / barrel)</div>
+<div class="grid" id="crude-grid"></div>
+
+<div class="section-label">Energy Products</div>
+<div class="grid" id="energy-grid"></div>
+
+<footer>
+  <span class="pulse"></span>Prices are simulated for demonstration. Connect a live data source (EIA, Alpha Vantage, Financial Modeling Prep) for real-time quotes.<br>
+  Data updates automatically every 30 seconds.
+</footer>
+
+<script>
+  // ── Base prices (approximate real-world values, USD) ─────────────────────
+  const BENCHMARKS = {
+    crude: [
+      { id: "brent",  name: "Brent Crude",            flag: "🌍", base: 74.20, unit: "per barrel", hi52: 89.40, lo52: 68.10, region: "North Sea" },
+      { id: "wti",    name: "WTI Crude",               flag: "🇺🇸", base: 70.85, unit: "per barrel", hi52: 85.15, lo52: 64.80, region: "Cushing, OK" },
+      { id: "dubai",  name: "Dubai Crude",             flag: "🇦🇪", base: 73.50, unit: "per barrel", hi52: 88.20, lo52: 67.30, region: "Middle East" },
+      { id: "opec",   name: "OPEC Basket",             flag: "🛢️",  base: 72.90, unit: "per barrel", hi52: 87.60, lo52: 66.90, region: "OPEC Members" },
+      { id: "murban", name: "Murban Crude",            flag: "🇦🇪", base: 74.80, unit: "per barrel", hi52: 89.90, lo52: 68.50, region: "Abu Dhabi" },
+      { id: "wcs",    name: "W. Canadian Select",      flag: "🇨🇦", base: 55.40, unit: "per barrel", hi52: 68.20, lo52: 49.10, region: "Alberta" },
+      { id: "espo",   name: "ESPO Blend",              flag: "🇷🇺", base: 68.10, unit: "per barrel", hi52: 82.40, lo52: 61.00, region: "Far East Russia" },
+      { id: "bonny",  name: "Bonny Light",             flag: "🇳🇬", base: 75.60, unit: "per barrel", hi52: 90.10, lo52: 69.20, region: "Nigeria" },
+    ],
+    energy: [
+      { id: "natgas", name: "Natural Gas (Henry Hub)", flag: "🔥", base: 2.18,  unit: "per MMBtu",  hi52: 3.90,  lo52: 1.60,  region: "Henry Hub, LA" },
+      { id: "heat",   name: "Heating Oil (NY Harbor)", flag: "🏭", base: 2.44,  unit: "per gallon", hi52: 3.10,  lo52: 2.05,  region: "New York" },
+      { id: "rbob",   name: "RBOB Gasoline",           flag: "⛽", base: 2.27,  unit: "per gallon", hi52: 2.98,  lo52: 1.92,  region: "New York" },
+    ],
+  };
+
+  // Simulated 7-day spark history (relative deltas)
+  const SPARK_SEEDS = {
+    brent:  [ 0.3, -0.5,  1.1, -0.2,  0.8, -0.4,  0.6],
+    wti:    [ 0.2, -0.6,  0.9, -0.3,  0.7, -0.5,  0.4],
+    dubai:  [ 0.4, -0.3,  1.0, -0.1,  0.9, -0.3,  0.5],
+    opec:   [ 0.3, -0.4,  0.8, -0.2,  0.6, -0.4,  0.3],
+    murban: [ 0.5, -0.2,  1.1,  0.0,  0.8, -0.2,  0.6],
+    wcs:    [-0.4,  0.6, -0.8,  0.3, -0.5,  0.7, -0.3],
+    espo:   [-0.2,  0.4, -0.6,  0.1, -0.3,  0.5, -0.1],
+    bonny:  [ 0.6, -0.3,  1.2, -0.1,  0.9, -0.3,  0.7],
+    natgas: [-0.06, 0.04, -0.08, 0.02, -0.05, 0.07, -0.03],
+    heat:   [ 0.03, -0.04, 0.06, -0.02, 0.04, -0.03, 0.02],
+    rbob:   [ 0.02, -0.03, 0.05, -0.01, 0.03, -0.02, 0.02],
+  };
+
+  // State
+  const prices = {};
+
+  function randomJitter(base, pct = 0.008) {
+    return base * (1 + (Math.random() * 2 - 1) * pct);
+  }
+
+  function initPrices() {
+    [...BENCHMARKS.crude, ...BENCHMARKS.energy].forEach(b => {
+      prices[b.id] = {
+        current: randomJitter(b.base, 0.005),
+        prev:    b.base,
+      };
+    });
+  }
+
+  function refreshPrices() {
+    [...BENCHMARKS.crude, ...BENCHMARKS.energy].forEach(b => {
+      const prev = prices[b.id].current;
+      prices[b.id] = { current: randomJitter(prev, 0.006), prev };
+    });
+  }
+
+  function fmtPrice(v, id) {
+    const decimals = (id === "natgas" || id === "heat" || id === "rbob") ? 3 : 2;
+    return v.toFixed(decimals);
+  }
+
+  function buildSparkline(id, direction) {
+    const seeds = SPARK_SEEDS[id] || [];
+    const max = Math.max(...seeds.map(Math.abs));
+    return seeds.map(v => {
+      const heightPct = Math.round((Math.abs(v) / max) * 100);
+      const cls = v >= 0 ? "up" : "down";
+      return `<div class="spark-bar ${cls}" style="height:${Math.max(8, heightPct)}%"></div>`;
+    }).join("");
+  }
+
+  function buildCard(b) {
+    const p     = prices[b.id];
+    const diff  = p.current - p.prev;
+    const pct   = (diff / p.prev) * 100;
+    const up    = diff >= 0;
+    const sign  = up ? "+" : "";
+    const cls   = up ? "up" : "down";
+    const arrow = up ? "▲" : "▼";
+    const priceColor = up ? "var(--green)" : "var(--red)";
+
+    return `
+      <div class="card" id="card-${b.id}">
+        <div class="card-header">
+          <div>
+            <div class="card-name">${b.name}</div>
+            <div class="card-unit">${b.unit}</div>
+          </div>
+          <div class="card-flag" title="${b.region}">${b.flag}</div>
+        </div>
+        <div class="card-price" style="color:${priceColor}">$${fmtPrice(p.current, b.id)}</div>
+        <div class="card-change">
+          <span class="badge ${cls}">${arrow} ${sign}${pct.toFixed(2)}%</span>
+          <span class="change-abs">${sign}$${Math.abs(diff).toFixed(3)}</span>
+        </div>
+        <div class="sparkline">${buildSparkline(b.id, cls)}</div>
+        <div class="card-meta">
+          <span>52W H: $${b.hi52.toFixed(2)}</span>
+          <span>52W L: $${b.lo52.toFixed(2)}</span>
+        </div>
+      </div>`;
+  }
+
+  function render() {
+    document.getElementById("crude-grid").innerHTML =
+      BENCHMARKS.crude.map(buildCard).join("");
+    document.getElementById("energy-grid").innerHTML =
+      BENCHMARKS.energy.map(buildCard).join("");
+
+    const now = new Date();
+    document.getElementById("last-updated").textContent =
+      "Updated " + now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function doRefresh(manual = false) {
+    const btn     = document.getElementById("refresh-btn");
+    const spinner = document.getElementById("spinner");
+    btn.disabled  = true;
+    spinner.style.display = "block";
+
+    setTimeout(() => {
+      refreshPrices();
+      render();
+      btn.disabled = false;
+      spinner.style.display = "none";
+    }, manual ? 600 : 0);
+  }
+
+  // Init
+  initPrices();
+  render();
+
+  document.getElementById("refresh-btn").addEventListener("click", () => doRefresh(true));
+
+  // Auto-refresh every 30 s
+  setInterval(() => doRefresh(false), 30_000);
+</script>
+</body>
+</html>
